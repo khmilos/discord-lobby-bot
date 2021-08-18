@@ -1,22 +1,38 @@
 // @ts-check
-/**
- * @typedef {import('./typing').BaseOnCreateListener} BaseOnCreateListener
- * @typedef {import('./typing').BaseLobbyStore} BaseLobbyStore
- * @typedef {import('./typing').FactoryByCreatorId} FactoryByCreatorId
- */
-const { VoiceState, VoiceChannel } = require('discord.js');
 
 /**
- * @implements {BaseOnCreateListener}
+ * @typedef {import('./typing').IOnCreateListener} IOnCreateListener
+ * @typedef {import('./typing').IStore} IStore
+ * @typedef {import('./typing').LobbyFactoryByChannelId} LobbyFactoryByChannelId
+ */
+
+const { VoiceState, VoiceChannel } = require('discord.js');
+const { isIStore, isLobbyFactoryByChannelId } = require('./typing/utils');
+
+/**
+ * Listens to `voiceStateUpdate` event parsed as create voice channel event.
+ * @implements {IOnCreateListener}
  */
 class OnCreateListener {
   /**
-   * @param {BaseLobbyStore} store
-   * @param {FactoryByCreatorId} factoryByCreatorId
+   * @type {IStore}
+   * @private
    */
-  constructor(store, factoryByCreatorId) {
+  store;
+
+  /**
+   * @type {LobbyFactoryByChannelId}
+   * @private
+   */
+  factoryByChannelId;
+
+  /**
+   * @param {IStore} store
+   * @param {LobbyFactoryByChannelId} factoryByChannelId
+   */
+  constructor(store, factoryByChannelId) {
     this.store = store;
-    this.factoryByCreatorId = factoryByCreatorId;
+    this.factoryByChannelId = factoryByChannelId;
     this.validate();
   }
 
@@ -26,8 +42,8 @@ class OnCreateListener {
    * @param {VoiceChannel} creator
    */
   listen = async (oldState, newState, creator) => {
-    const index = this.store.reserveIndex();
-    const factory = this.factoryByCreatorId[creator.id];
+    const index = await this.store.reserveIndex();
+    const factory = this.factoryByChannelId[creator.id];
     if (!factory) throw new Error('Listened to unknown channel-creator');
     const lobby = await factory.create(newState.member, index);
     this.store.save(lobby);
@@ -40,12 +56,10 @@ class OnCreateListener {
    */
   validate() {
     const errors = [
-      (typeof this.store.reserveIndex !== 'function' ||
-        typeof this.store.save !== 'function') &&
-        'store must be an instance of BaseStore',
-      typeof this.factoryByCreatorId !== 'object' &&
-        'factoryByCreatorId must be an key/value dict where key is creatorId and value is BaseLobbyFactory instance',
-    ].filter(error => error);
+      !isLobbyFactoryByChannelId(this.factoryByChannelId) &&
+        'factoryByChannelId must match LobbyFactoryByChannelId',
+      !isIStore(this.store) && 'store must match IStore interface',
+    ].filter((error) => error);
     if (errors.length > 0) {
       throw new TypeError(errors.join('\n\t'));
     }

@@ -1,155 +1,213 @@
 // @ts-check
+
 /**
- * @typedef {import('./typing').BaseLobby} BaseLobby
+ * @typedef {import('./typing').ILobby} ILobby
+ * @typedef {import('./typing').LobbyArguments} LobbyArguments
+ * @typedef {import('./typing').TemplateByLobbyKey} LobbyTemplates
  */
+
 const {
+  GuildMember,
   VoiceChannel,
   Invite,
   Message,
   MessageEmbed,
-  GuildMember,
 } = require('discord.js');
 
 /**
- * @implements {BaseLobby}
+ * Manages voice channel and message.
+ * @implements {ILobby}
  */
 class Lobby {
   /**
-   * @readonly
    * @type {VoiceChannel}
+   * @readonly
    */
   channel;
 
   /**
-   * @private
-   * @type {Invite}
-   */
-  invite;
-
-  /**
-   * @private
-   * @type {Message}
-   */
-  message;
-
-  /**
-   * @private
-   * @type {MessageEmbed}
-   */
-  messageEmbed;
-
-  /**
+   * @type {number | string}
    * @readonly
-   * @type {number}
    */
   index;
 
   /**
-   * @private;
+   * Invite to voice channel.
+   * @type {Invite}
+   * @private
+   */
+  invite;
+
+  /**
+   * Message with description of lobby status.
+   * @type {Message}
+   * @private
+   */
+  message;
+
+  /**
+   * Embed inside message with description of lobby status.
+   * @type {MessageEmbed}
+   * @private
+   */
+  embed;
+
+  /**
+   * Map of templates to generate various string.
+   * @type {LobbyTemplates}
+   * @private
+   */
+  templates;
+
+  /**
+   * List of members inside lobby.
    * @type {GuildMember[]}
+   * @private
    */
   members = [];
 
   /**
-   * @private
-   * @type {string}
+   * @param {LobbyArguments} params
    */
-  name;
-
-  /**
-   * @param {VoiceChannel} channel VoiceChannel for lobby.
-   * @param {Invite} invite Invite to the VoiceChannel.
-   * @param {Message} message Message with information about Lobby.
-   * @param {MessageEmbed} messageEmbed MessageEmbed inside message.
-   * @param {number} index Lobby index in the system.
-   * @param {string} name
-   */
-  constructor(channel, invite, message, messageEmbed, index, name) {
+  constructor({ channel, invite, message, embed, index, templates }) {
     this.channel = channel;
     this.invite = invite;
     this.message = message;
-    this.messageEmbed = messageEmbed;
+    this.embed = embed;
     this.index = index;
-    this.name = name;
-    this.members = [];
+    this.templates = templates;
     this.validate();
   }
 
   /**
    * @param {GuildMember} member
+   * @throws {TypeError} When member is not instance of discord.js GuildMember.
+   * @throws {Error} When member is already inside lobby.
    */
-  async add(member) {
+  add(member) {
     if (!(member instanceof GuildMember)) {
       throw new TypeError('member is not instance of discord.js GuildMember');
     }
 
     if (this.isExists(member)) {
-      throw new Error('This member is aleready in the lobby.');
+      throw new Error('member is already in  lobby');
     }
 
     this.members.push(member);
-    await this.update();
+
+    return this.update();
   }
 
   /**
    * @param {GuildMember} member
+   * @throws {TypeError} When member is not instance of discord.js GuildMember.
+   * @throws {Error} When member is not inside lobby.
    */
-  async remove(member) {
+  remove(member) {
     if (!(member instanceof GuildMember)) {
       throw new TypeError('member is not instance of discord.js GuildMember');
     }
 
     const length = this.members.length;
-    this.members = this.members.filter(storedMember => {
-      return storedMember.id !== member.id;
-    });
+    this.members = this.members.filter((member) => member.id === member.id);
     if (this.members.length === length) {
-      throw new Error('There are no such member.');
+      throw new Error('member is not in lobby');
     }
 
-    await this.update();
+    return this.update();
   }
 
   async delete() {
-    this.channel.delete();
-    this.message.delete();
+    await Promise.all([this.channel.delete(), this.message.delete()]);
   }
 
   /**
    * @param {GuildMember} member
    */
   isExists(member) {
-    return !!this.members.find(stored => stored.id === member.id);
+    return !!this.members.find((stored) => stored.id === member.id);
   }
 
   /**
-   * Updates messageEmbed description.
+   * Updates embed description.
    * @private
    */
   async update() {
-    if (this.members.length < this.channel.userLimit) {
-      this.messageEmbed.author.name = `${this.members.length}/${
-        this.channel.userLimit
-      } В поиске игроков +${this.channel.userLimit - this.members.length} ${
-        this.name
-      } #${this.index}`;
-      this.messageEmbed.description = `${this.members
-        .map(
-          (member, memberIndex) => `[${memberIndex + 1}] <@${member.user.id}>`,
-        )
-        .join('\n')}\n Присоединиться - ${this.invite.url}`;
-    } else {
-      this.messageEmbed.author.name = `${this.members.length}/${this.channel.userLimit} Играют ${this.name} #${this.index}`;
-      this.messageEmbed.description = `${this.members
-        .map((member, memberIndex) => `[${memberIndex + 1}] <@${member.user.id}>`)
-        .join('\n')}`;
-    }
-    this.message = await this.message.edit(this.messageEmbed);
+    this.embed.author.name = this.messageTitleTemplate.generate({
+      index: this.index,
+      limit: this.channel.userLimit,
+      current: this.members.length,
+      left: this.channel.userLimit - this.members.length,
+    });
+    const messageMemberTemplate = this.messageMemberTemplate;
+    this.embed.description = this.members
+      .map((member, index) => {
+        return messageMemberTemplate.generate({
+          tag: `<@${member.user.id}>`,
+          index: index + 1,
+        });
+      })
+      .join('');
+    this.embed.description += this.messageLinkTemplate.generate({
+      link: this.invite.url,
+    });
+    this.message = await this.message.edit(this.embed);
   }
 
   /**
-   * Validates class instance properties.
+   * Returns valid template for title of message.
    * @private
+   */
+  get messageTitleTemplate() {
+    if (
+      this.templates.message.titleFull &&
+      this.members.length === this.channel.userLimit
+    ) {
+      return this.templates.message.titleFull;
+    }
+    return this.templates.message.title;
+  }
+
+  /**
+   * Returns valid template for description member in message.
+   * @private
+   */
+  get messageMemberTemplate() {
+    if (this.templates.message.member) {
+      return this.templates.message.member;
+    }
+    return {
+      generate({ index, tag }) {
+        return `[${index}] - ${tag}`;
+      },
+    };
+  }
+
+  /**
+   * Returns valid template for generating link.
+   * @private
+   */
+  get messageLinkTemplate() {
+    if (
+      this.templates.message.linkFull &&
+      this.members.length === this.channel.userLimit
+    ) {
+      return this.templates.message.linkFull;
+    }
+    if (this.templates.message.link) {
+      return this.templates.message.link;
+    }
+    return {
+      generate({ link }) {
+        return `Join - ${link}`;
+      },
+    };
+  }
+
+  /**
+   * Validates properties of a class instance.
+   * @private
+   * @throws {TypeError} When some properties has incorrect type.
    */
   validate() {
     const errors = [
@@ -159,11 +217,11 @@ class Lobby {
         'invite must be an instance of discord.js Invite',
       !(this.message instanceof Message) &&
         'message must be an instance of discord.js Message',
-      !(this.messageEmbed instanceof MessageEmbed) &&
-        'messageEmbed must be an instance of discord.js MessageEmbed',
-      (typeof this.index !== 'number' || this.index < 0) &&
+      !(this.embed instanceof MessageEmbed) &&
+        'embed must be an instance of discord.js MessageEmbed',
+      (typeof this.index !== 'number' || typeof this.index !== 'string') &&
         'index must be positive integer',
-    ].filter(error => error);
+    ].filter((error) => error);
     if (errors.length > 0) {
       throw new TypeError(errors.join('\n\t'));
     }

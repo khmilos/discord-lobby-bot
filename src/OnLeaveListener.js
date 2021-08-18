@@ -1,23 +1,27 @@
 // @ts-check
-/**
- * @typedef {import('./typing').BaseOnLeaveListener} BaseOnLeaveListener
- * @typedef {import('./typing').BaseLobbyStore} BaseLobbyStore
- * @typedef {import('./typing').BaseLobby} BaseLobby
- */
-const { VoiceState } = require('discord.js');
 
 /**
- * @implements {BaseOnLeaveListener}
+ * @typedef {import('./typing').IOnLeaveListener} IOnLeaveListener
+ * @typedef {import('./typing').IStore} IStore
+ * @typedef {import('./typing').ILobby} ILobby
+ */
+
+const { VoiceState } = require('discord.js');
+const { isIStore } = require('./typing/utils');
+
+/**
+ * Listens to `voiceStateUpdate` event parsed as leave voice channel event.
+ * @implements {IOnLeaveListener}
  */
 class OnLeaveListener {
   /**
-   * @type {BaseLobbyStore}
+   * @type {IStore}
    * @private
    */
   store;
 
   /**
-   * @param {BaseLobbyStore} store
+   * @param {IStore} store
    */
   constructor(store) {
     this.store = store;
@@ -27,7 +31,7 @@ class OnLeaveListener {
   /**
    * @param {VoiceState} oldState
    * @param {VoiceState} newState
-   * @param {BaseLobby} lobby
+   * @param {ILobby} lobby
    */
   listen = (oldState, newState, lobby) => {
     if (oldState.channel.members.size !== 0) {
@@ -39,12 +43,12 @@ class OnLeaveListener {
   };
 
   /**
-   * Validates class instance properties.
+   * Validates properties of a class instance.
    * @private
    */
   validate() {
-    if (typeof this.store.remove !== 'function') {
-      throw new TypeError('store must be instance of BaseLobbyStore');
+    if (!isIStore(this.store)) {
+      throw new TypeError('store must match IStore interface');
     }
   }
 }

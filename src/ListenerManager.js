@@ -1,16 +1,22 @@
 // @ts-check
-/**
- * @typedef {import('./typing').BaseListenerManager} BaseListenerManager
- * @typedef {import('./typing').BaseLobbyStore} BaseLobbyStore
- * @typedef {import('./typing').BaseOnCreateListener} BaseOnCreateListener
- * @typedef {import('./typing').BaseOnJoinListener} BaseOnJoinListener
- * @typedef {import('./typing').BaseOnLeaveListener} BaseOnLeaveListener
- * @typedef {import('./typing').ListenersByEvent} ListenersByEvent
- */
-const { Client, VoiceState, VoiceChannel } = require('discord.js');
 
 /**
- * @implements {BaseListenerManager}
+ * @typedef {import('./typing').IListenerManager} IListenerManager
+ * @typedef {import('./typing').IStore} IStore
+ * @typedef {import('./typing').IOnCreateListener} IOnCreateListener
+ * @typedef {import('./typing').IOnJoinListener} IOnJoinListener
+ * @typedef {import('./typing').IOnLeaveListener} IOnLeaveListener
+ * @typedef {import('./typing').ListenersByCustomEvent} ListenersByCustomEvent
+ * @typedef {import('./typing').ListenerManagerArguments}
+ *  ListenerManagerArguments
+ */
+
+const { Client, VoiceState, VoiceChannel } = require('discord.js');
+const { isIStore, isIListener } = require('./typing/utils');
+
+/**
+ * Manages listeners to `voiceStateUpdate` event.
+ * @implements {IListenerManager}
  */
 class ListenerManager {
   /**
@@ -20,7 +26,7 @@ class ListenerManager {
   client;
 
   /**
-   * @type {BaseLobbyStore}
+   * @type {IStore}
    * @private
    */
   store;
@@ -32,31 +38,32 @@ class ListenerManager {
   creators;
 
   /**
-   * @type {BaseOnCreateListener[]}
+   * @type {IOnCreateListener[]}
    * @private
    */
   onCreateListeners;
 
   /**
-   * @type {BaseOnJoinListener[]}
+   * @type {IOnJoinListener[]}
    * @private
    */
   onJoinListeners;
 
   /**
-   * @type {BaseOnLeaveListener[]}
+   * @type {IOnLeaveListener[]}
    * @private
    */
   onLeaveListeners;
 
   /**
-   * @param {Client} client discord.js Client bot instance.
-   * @param {BaseLobbyStore} store - instance of BaseLobbyStore.
-   * @param {VoiceChannel[]} creators - list of instances of channel-creators.
-   * After joining them will be called create-listener.
-   * @param {ListenersByEvent} listenersByEvent
+   * @param {ListenerManagerArguments} arg
    */
-  constructor(client, store, creators, { create, join, leave }) {
+  constructor({
+    client,
+    store,
+    creators,
+    listenersByEvent: { create, join, leave },
+  }) {
     this.client = client;
     this.store = store;
     this.creators = creators;
@@ -84,30 +91,30 @@ class ListenerManager {
    * @param {VoiceState} newState
    * @private
    */
-  listen = (oldState, newState) => {
+  listen = async (oldState, newState) => {
     if (oldState.channelID === newState.channelID) return;
 
-    const creator = this.creators.find(creator => {
+    const creator = this.creators.find((creator) => {
       return creator.id === newState.channelID;
     });
     if (creator) {
-      this.onCreateListeners.forEach(listener => {
+      this.onCreateListeners.forEach((listener) => {
         listener.listen(oldState, newState, creator);
       });
     }
 
     const joinedChannel =
-      newState.channelID && this.store.find(newState.channelID);
+      newState.channelID && (await this.store.find(newState.channelID));
     if (joinedChannel) {
-      this.onJoinListeners.forEach(listener => {
+      this.onJoinListeners.forEach((listener) => {
         listener.listen(oldState, newState, joinedChannel);
       });
     }
 
     const leavedChannel =
-      oldState.channelID && this.store.find(oldState.channelID);
+      oldState.channelID && (await this.store.find(oldState.channelID));
     if (leavedChannel) {
-      this.onLeaveListeners.forEach(listener => {
+      this.onLeaveListeners.forEach((listener) => {
         listener.listen(oldState, newState, leavedChannel);
       });
     }
@@ -120,8 +127,17 @@ class ListenerManager {
   validate() {
     const errors = [
       !(this.client instanceof Client) &&
-        'client must be instance of discord.js Client class',
-    ].filter(err => err);
+        'client must be an instance of discord.js Client class',
+      !isIStore(this.store) && 'store must match an IStore interface',
+      this.creators.some((creator) => !(creator instanceof VoiceChannel)) &&
+        'creators must be an Array of VoiceChannel',
+      this.onCreateListeners.some((listener) => !isIListener(listener)) &&
+        'Listeners to create event must match IListener interface',
+      this.onJoinListeners.some((listener) => !isIListener(listener)) &&
+        'Listeners to create event must match IListener interface',
+      this.onLeaveListeners.some((listener) => !isIListener(listener)) &&
+        'Listeners to create event must match IListener interface',
+    ].filter((error) => error);
     if (errors.length > 0) {
       throw new TypeError(errors.join('\n\t'));
     }

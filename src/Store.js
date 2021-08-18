@@ -1,22 +1,26 @@
 // @ts-check
+
 /**
- * @typedef {import('./typing').BaseLobbyStore} BaseLobbyStore
- * @typedef {import('./typing').BaseLobby} BaseLobby
+ * @typedef {import('./typing').IStore} IStore
+ * @typedef {import('./typing').ILobby} ILobby
  */
 
 /**
- * @implements {BaseLobbyStore}
+ * Manages access to active lobbies.
+ * @implements {IStore}
  */
-class LobbyStore {
+class Store {
   /**
+   * Map of voice channel id / Lobby pairs.
+   * @type {{[channelId: string]: ILobby}}
    * @private
-   * @type {{[channelId: string]: BaseLobby}}
    */
   store;
 
   /**
+   * Indices of active lobbies.
+   * @type {Set<number | string>}
    * @private
-   * @type {Set<number>}
    */
   indices;
 
@@ -33,7 +37,7 @@ class LobbyStore {
   }
 
   /**
-   * @param {BaseLobby} lobby
+   * @param {ILobby} lobby
    */
   save(lobby) {
     this.store[lobby.channel.id] = lobby;
@@ -47,7 +51,7 @@ class LobbyStore {
   }
 
   /**
-   * @param {BaseLobby} lobby
+   * @param {ILobby} lobby
    */
   remove(lobby) {
     this.indices.delete(lobby.index);
@@ -55,4 +59,4 @@ class LobbyStore {
   }
 }
 
-module.exports = LobbyStore;
+module.exports = Store;

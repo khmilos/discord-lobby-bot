@@ -1,20 +1,21 @@
 // @ts-check
+
 /**
- * @typedef {import('./typing').BaseOnJoinListener} BaseOnJoinListener
- * @typedef {import('./typing').BaseLobby} BaseLobby
+ * @typedef {import('./typing').IOnJoinListener} IOnJoinListener
+ * @typedef {import('./typing').ILobby} ILobby
  */
+
 const { VoiceState } = require('discord.js');
 
 /**
- * @implements {BaseOnJoinListener}
+ * Listens to `voiceStateUpdate` event parsed as join voice channel event.
+ * @implements {IOnJoinListener}
  */
 class OnJoinListener {
-  constructor() {}
-
   /**
    * @param {VoiceState} oldState
    * @param {VoiceState} newState
-   * @param {BaseLobby} lobby
+   * @param {ILobby} lobby
    */
   listen = (oldState, newState, lobby) => {
     lobby.add(newState.member);

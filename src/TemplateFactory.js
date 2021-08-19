@@ -26,8 +26,8 @@ class TemplateFactory {
   args;
 
   constructor() {
-    this.reg = /{index}|{limit}|{current}|{left}|{tag}/g;
-    this.args = '{ index, limit, current, left, tag }';
+    this.reg = /{index}|{limit}|{current}|{left}|{tag}|{link}/g;
+    this.args = '{ index, limit, current, left, tag, link }';
   }
 
   /**

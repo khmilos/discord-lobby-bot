@@ -17,8 +17,8 @@ class OnJoinListener {
    * @param {VoiceState} newState
    * @param {ILobby} lobby
    */
-  listen = (oldState, newState, lobby) => {
-    lobby.add(newState.member);
+  listen = async (oldState, newState, lobby) => {
+    await lobby.add(newState.member);
   };
 }
 

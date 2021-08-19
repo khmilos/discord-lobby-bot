@@ -50,7 +50,7 @@ class App {
    */
   main() {
     this.client = new Client();
-    this.client.once('ready', this.init);
+    this.client.once('ready', this.init());
     this.client.login(this.settings.token);
   }
 
@@ -58,36 +58,39 @@ class App {
    * Listener to once ready client event.
    * @private
    */
-  init = async () => {
-    const lobbiesChannels = await this.fetchChannels();
-    const lobbiesTemplates = this.createTemplates();
-    const factories = lobbiesChannels.map((lobbyChannels, index) => {
-      return new LobbyFactory({
-        manager: lobbyChannels.join.guild.channels,
-        text: lobbyChannels.text,
-        category: lobbyChannels.category,
-        limit: this.settings.lobbies[index].limit,
-        templates: lobbiesTemplates[index],
+  init() {
+    const t = this;
+    return async () => {
+      const lobbiesChannels = await t.fetchChannels();
+      const lobbiesTemplates = t.createTemplates();
+      const factories = lobbiesChannels.map((lobbyChannels, index) => {
+        return new LobbyFactory({
+          manager: lobbyChannels.join.guild.channels,
+          text: lobbyChannels.text,
+          category: lobbyChannels.category,
+          limit: t.settings.lobbies[index].limit,
+          templates: lobbiesTemplates[index],
+        });
       });
-    });
-    const store = new Store();
-    const creators = lobbiesChannels.map((lobbyChannels) => lobbyChannels.join);
-    const factoryByChannelId = Object.fromEntries(
-      creators.map((creator, index) => [creator.id, factories[index]]),
-    );
-    this.listenerManager = new ListenerManager({
-      client: new Client(),
-      store,
-      creators,
-      listenersByEvent: {
-        create: [new OnCreateListener(store, factoryByChannelId)],
-        join: [new OnJoinListener()],
-        leave: [new OnLeaveListener(store)],
-      },
-    });
-    this.listenerManager.start();
-    console.log('Bot is ready');
-  };
+      const store = new Store();
+      const creators = lobbiesChannels.map(lobbyChannels => lobbyChannels.join);
+      const factoryByChannelId = Object.fromEntries(
+        creators.map((creator, index) => [creator.id, factories[index]]),
+      );
+      t.listenerManager = new ListenerManager({
+        client: t.client,
+        store,
+        creators,
+        listenersByEvent: {
+          create: [new OnCreateListener(store, factoryByChannelId)],
+          join: [new OnJoinListener()],
+          leave: [new OnLeaveListener(store)],
+        },
+      });
+      t.listenerManager.start();
+      console.log('Bot is ready');
+    };
+  }
 
   /**
    * Fetches lobbies channels.
@@ -104,7 +107,7 @@ class App {
         this.client.channels.fetch(this.settings.category),
       this.settings.text && this.client.channels.fetch(this.settings.text),
       Promise.all(
-        this.settings.lobbies.map((lobby) => {
+        this.settings.lobbies.map(lobby => {
           return Promise.all([
             this.client.channels.fetch(lobby.join),
             lobby.category && this.client.channels.fetch(lobby.category),
@@ -113,7 +116,7 @@ class App {
         }),
       ),
     ]);
-    const lobbyMaps = lobbyTuples.map((lobbyTuple) => ({
+    const lobbyMaps = lobbyTuples.map(lobbyTuple => ({
       join: lobbyTuple[0],
       category: lobbyTuple[1] || category,
       text: lobbyTuple[2] || text,
@@ -129,7 +132,7 @@ class App {
    */
   createTemplates() {
     const factory = new TemplateFactory();
-    return this.settings.lobbies.map((lobby) => ({
+    return this.settings.lobbies.map(lobby => ({
       channel: {
         title: factory.create(lobby.channel.title),
         ...(lobby.channel.titleFull && {
@@ -141,12 +144,8 @@ class App {
         ...(lobby.message.titleFull && {
           titleFull: factory.create(lobby.message.titleFull),
         }),
-        ...(lobby.message.member && {
-          member: factory.create(lobby.message.member),
-        }),
-        ...(lobby.message.link && {
-          link: factory.create(lobby.message.link),
-        }),
+        member: factory.create(lobby.message.member ?? '[{index}] - {tag}\n'),
+        link: factory.create(lobby.message.link ?? 'Join - {link}'),
         ...(lobby.message.linkFull && {
           linkFull: factory.create(lobby.message.linkFull),
         }),
@@ -167,7 +166,7 @@ class App {
       throw new TypeError('must be specified any lobby');
     }
     if (
-      this.settings.lobbies.some((lobby) => {
+      this.settings.lobbies.some(lobby => {
         return !lobby.category && !this.settings.category;
       })
     ) {
@@ -176,7 +175,7 @@ class App {
       );
     }
     if (
-      this.settings.lobbies.some((lobby) => {
+      this.settings.lobbies.some(lobby => {
         return !lobby.text && !this.settings.text;
       })
     ) {
@@ -210,7 +209,7 @@ class App {
             : 'default text channel must be text channel'),
       ])
       .flat()
-      .filter((error) => error);
+      .filter(error => error);
     if (errors.length > 0) {
       throw new TypeError(errors.join('\n\t'));
     }

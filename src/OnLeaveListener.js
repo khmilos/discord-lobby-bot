@@ -33,12 +33,12 @@ class OnLeaveListener {
    * @param {VoiceState} newState
    * @param {ILobby} lobby
    */
-  listen = (oldState, newState, lobby) => {
+  listen = async (oldState, newState, lobby) => {
     if (oldState.channel.members.size !== 0) {
-      lobby.remove(oldState.member);
+      await lobby.remove(oldState.member);
     } else {
-      lobby.delete();
-      this.store.remove(lobby);
+      await lobby.delete();
+      await this.store.remove(lobby);
     }
   };
 

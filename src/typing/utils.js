@@ -58,7 +58,7 @@ function isLobbyFactoryByChannelId(x) {
   return (
     x &&
     typeof x === 'object' &&
-    Object.keys(x).every((factory) => isILobbyFactory(factory))
+    Object.values(x).every((factory) => isILobbyFactory(factory))
   );
 }
 
@@ -106,7 +106,7 @@ function isSettings(x) {
     typeof x.token === 'string' &&
     (!x.category || typeof x.category === 'string') &&
     (!x.text || typeof x.text === 'string') &&
-    x.lobbies.some((lobby) => !isLobbySettings(lobby))
+    !x.lobbies.some((lobby) => !isLobbySettings(lobby))
   );
 }
 

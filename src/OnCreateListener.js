@@ -46,7 +46,7 @@ class OnCreateListener {
     const factory = this.factoryByChannelId[creator.id];
     if (!factory) throw new Error('Listened to unknown channel-creator');
     const lobby = await factory.create(newState.member, index);
-    this.store.save(lobby);
+    await this.store.save(lobby);
     newState.setChannel(lobby.channel);
   };
 

@@ -109,7 +109,9 @@ class Lobby {
     }
 
     const length = this.members.length;
-    this.members = this.members.filter((member) => member.id === member.id);
+    this.members = this.members.filter(storedMember => {
+      return storedMember.id !== member.id;
+    });
     if (this.members.length === length) {
       throw new Error('member is not in lobby');
     }
@@ -125,7 +127,7 @@ class Lobby {
    * @param {GuildMember} member
    */
   isExists(member) {
-    return !!this.members.find((stored) => stored.id === member.id);
+    return !!this.members.find(stored => stored.id === member.id);
   }
 
   /**
@@ -139,10 +141,9 @@ class Lobby {
       current: this.members.length,
       left: this.channel.userLimit - this.members.length,
     });
-    const messageMemberTemplate = this.messageMemberTemplate;
     this.embed.description = this.members
       .map((member, index) => {
-        return messageMemberTemplate.generate({
+        return this.templates.message.member.generate({
           tag: `<@${member.user.id}>`,
           index: index + 1,
         });
@@ -169,21 +170,6 @@ class Lobby {
   }
 
   /**
-   * Returns valid template for description member in message.
-   * @private
-   */
-  get messageMemberTemplate() {
-    if (this.templates.message.member) {
-      return this.templates.message.member;
-    }
-    return {
-      generate({ index, tag }) {
-        return `[${index}] - ${tag}`;
-      },
-    };
-  }
-
-  /**
    * Returns valid template for generating link.
    * @private
    */
@@ -194,14 +180,7 @@ class Lobby {
     ) {
       return this.templates.message.linkFull;
     }
-    if (this.templates.message.link) {
-      return this.templates.message.link;
-    }
-    return {
-      generate({ link }) {
-        return `Join - ${link}`;
-      },
-    };
+    return this.templates.message.link;
   }
 
   /**
@@ -219,9 +198,10 @@ class Lobby {
         'message must be an instance of discord.js Message',
       !(this.embed instanceof MessageEmbed) &&
         'embed must be an instance of discord.js MessageEmbed',
-      (typeof this.index !== 'number' || typeof this.index !== 'string') &&
+      typeof this.index !== 'number' &&
+        typeof this.index !== 'string' &&
         'index must be positive integer',
-    ].filter((error) => error);
+    ].filter(error => error);
     if (errors.length > 0) {
       throw new TypeError(errors.join('\n\t'));
     }

@@ -125,7 +125,6 @@ class LobbyFactory {
   }
 
   /**
-   * @todo
    * Validates properties of a class instance.
    * @private
    * @throws {TypeError} When some properties has incorrect type.
@@ -138,10 +137,10 @@ class LobbyFactory {
         'text must be an instance of discord.js TextChannel',
       !(this.category instanceof CategoryChannel) &&
         'category must be an instance of discord.js CategoryChannel',
-      !(typeof this.limit !== 'number') && 'limit must be a number',
+      typeof this.limit !== 'number' && 'limit must be a number',
       !isTemplateByLobbyKey(this.templates) &&
         'templates must match TemplateByLobbyKey interface',
-    ].filter((error) => error);
+    ].filter(error => error);
     if (errors.length > 0) {
       throw new TypeError(errors.join('\n\t'));
     }

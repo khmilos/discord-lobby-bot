@@ -31,9 +31,9 @@ export interface LobbySettings {
   };
   message: {
     title: string;
+    member: string;
+    link: string;
     titleFull?: string;
-    member?: string;
-    link?: string;
     linkFull?: string;
   };
 }
